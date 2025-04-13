@@ -1,0 +1,70 @@
+import "vocab.json"
+
+Constant frozen_locs := [[1, 0], [2, 0], [3, 0], [0, 1], [2, 1], [0, 2], [1, 2], [2, 2], [1, 3], [2, 3]]
+Constant hole_locs := [[1, 1], [3, 1], [3, 2], [0, 3]]
+Constant goal_loc := [3,3]
+
+Factor position := S[0, 1]
+Factor col := S[0]
+Factor row := S[1]
+
+Proposition reached_goal := row * 4 + col == 15
+Proposition in_hole := position in hole_locs
+
+Proposition valid_move_left := col > 0
+Proposition valid_move_down := row < 3
+Proposition valid_move_right := col < 3
+Proposition valid_move_up := row > 0
+
+Proposition no_hole_to_down := (position + [0,1] in frozen_locs)
+Proposition no_hole_to_right := (position + [1,0] in frozen_locs)
+
+Proposition left_of_goal := position + [1,0] == [3,3]
+
+Action left := 0
+Action down := 1
+Action right := 2
+Action up := 3
+
+Effect movement_effect:
+  if in_hole or reached_goal:
+    S' -> S
+  elif A == left and valid_move_left:
+    position' -> position + [-1,0]
+    S' -> S + [-1,0]
+  elif A == down and valid_move_down:
+    position' -> position + [0,1]
+    S' -> S + [0,1]
+  elif A == right and valid_move_right:
+    position' -> position + [1,0]
+    S' -> S + [1,0]
+  elif A == up and valid_move_up:
+    position' -> position + [0,-1]
+    S' -> S + [0,-1]
+  else:
+    S' -> S
+  
+
+Effect reward_effect:
+  if reached_goal:
+    Reward 1
+  elif in_hole:
+    Reward -100 # True reward is 0, but changed to improve performance
+  else:
+    Reward 0
+
+Effect main:
+  -> reward_effect
+  -> movement_effect
+
+Policy lake_policy:
+  if not reached_goal:
+    if left_of_goal:
+      Execute right
+    elif row < goal_y and valid_move_down and no_hole_to_down:
+      Execute down
+    elif col < goal_x and valid_move_right and no_hole_to_right:
+      Execute right
+    else:
+      Execute left with P(1/2)
+      or Execute up with P(1/2)
